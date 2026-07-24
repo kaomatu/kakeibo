@@ -66,6 +66,7 @@ import {
   let recurringType = "expense";
   let transactions = load();
   let recurringTransactions = [];
+  let budgets = [];
   let routeStack = ["#home"];
   let isAppBack = false;
   let currentUser = null;
@@ -209,6 +210,27 @@ import {
     if (!currentUser) throw new Error("ログインが必要です");
     await deleteDoc(doc(db, "users", currentUser.uid, "recurringTransactions", id));
   }
+  function budgetReference(month, category) {
+    return doc(db, "users", currentUser.uid, "budgets", month, "items", encodeURIComponent(category));
+  }
+  async function loadRemoteBudgets() {
+    if (!currentUser) return;
+    const snapshot = await getDocs(collection(db, "users", currentUser.uid, "budgets", viewMonth, "items"));
+    budgets = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+    if (uiReady) render();
+  }
+  async function saveRemoteBudget(entry) {
+    if (!currentUser) throw new Error("ログインが必要です");
+    await setDoc(budgetReference(viewMonth, entry.categoryId), {
+      categoryId: entry.categoryId,
+      amount: entry.amount,
+      updatedAt: serverTimestamp(),
+    });
+  }
+  async function deleteRemoteBudget(category) {
+    if (!currentUser) throw new Error("ログインが必要です");
+    await deleteDoc(budgetReference(viewMonth, category));
+  }
   function monthLabel(month) {
     const [year, value] = month.split("-");
     return `${year}年 ${Number(value)}月`;
@@ -291,18 +313,25 @@ import {
         ? "前月と同じ"
         : `前月より ${yen(expenseDifference)} ${expenseDifference > 0 ? "多い" : "少ない"}`;
     comparison.className = isFutureMonth ? "neutral" : expenseDifference > 0 ? "minus" : expenseDifference < 0 ? "plus" : "neutral";
-    homeCards[2].querySelector("strong").textContent = "未設定";
-    homeCards[2].querySelector("strong").className = "neutral";
-    homeCards[2].querySelector("small").textContent = "予算を設定してください";
+    const totalBudget = budgets.reduce((total, item) => total + item.amount, 0);
+    const remainingBudget = totalBudget - expense;
+    homeCards[2].querySelector("strong").textContent = totalBudget ? signedYen(remainingBudget) : "未設定";
+    homeCards[2].querySelector("strong").className = totalBudget ? (remainingBudget >= 0 ? "positive" : "negative") : "neutral";
+    homeCards[2].querySelector("small").textContent = totalBudget ? `予算 ${yen(totalBudget)}` : "予算を設定してください";
     document.querySelectorAll(".month-label, .month-navigation span").forEach((el) => el.textContent = monthLabel(viewMonth));
     const overview = document.querySelector(".budget-overview");
     overview.querySelector(".panel-heading h2").textContent = isCurrentMonth ? "今月の予算" : "この月の予算";
-    overview.querySelector(".panel-heading p").textContent = "まだ予算が設定されていません";
-    overview.querySelector(".progress span").style.width = "0%";
-    overview.querySelector(".budget-caption strong").textContent = "予算を追加してください";
-    overview.querySelector(".budget-caption span").textContent = "未設定";
+    const budgetRate = totalBudget ? Math.round(expense / totalBudget * 100) : 0;
+    overview.querySelector(".panel-heading p").textContent = totalBudget ? `予算 ${yen(totalBudget)}` : "まだ予算が設定されていません";
+    overview.querySelector(".progress span").style.width = `${Math.min(budgetRate, 100)}%`;
+    overview.querySelector(".budget-caption strong").textContent = totalBudget ? `残り ${signedYen(remainingBudget)}` : "予算を追加してください";
+    overview.querySelector(".budget-caption span").textContent = totalBudget ? `${budgetRate}% 使用` : "未設定";
     const alertRow = overview.querySelector(".alert-row");
     alertRow.hidden = true;
+    if (totalBudget && remainingBudget < 0) {
+      alertRow.hidden = false;
+      alertRow.querySelector("span:nth-child(2)").textContent = `${yen(Math.abs(remainingBudget))} 予算を超過しています`;
+    }
     const flow = document.querySelectorAll(".flow-numbers b");
     flow[0].textContent = `+ ${yen(income)}`;
     flow[1].textContent = `− ${yen(expense)}`;
@@ -315,7 +344,38 @@ import {
       el.textContent = index === 2 ? signedYen(values[index]) : yen(values[index]);
     });
     renderAnalysis();
+    renderBudgets();
     bindTransactionActions();
+  }
+  function renderBudgets() {
+    const empty = document.querySelector(".budget-empty");
+    const summary = document.querySelector(".total-budget");
+    const toolbar = document.querySelector(".budget-toolbar");
+    const list = document.querySelector(".budget-list");
+    const hasBudgets = budgets.length > 0;
+    empty.hidden = hasBudgets;
+    summary.hidden = !hasBudgets;
+    toolbar.hidden = !hasBudgets;
+    list.hidden = !hasBudgets;
+    if (!hasBudgets) return;
+    const monthExpenses = transactions.filter((item) => item.type === "expense" && item.date.startsWith(viewMonth));
+    const total = budgets.reduce((value, item) => value + item.amount, 0);
+    const used = sum(monthExpenses, "expense");
+    const remaining = total - used;
+    const rate = total ? Math.round(used / total * 100) : 0;
+    summary.querySelector("strong").textContent = yen(total);
+    summary.querySelector("small").textContent = `使用額 ${yen(used)} ／ 残額 ${signedYen(remaining)}`;
+    summary.querySelector(".donut").style.background = `conic-gradient(${rate > 100 ? "var(--red)" : "var(--blue)"} ${Math.min(rate, 100)}%,#e8edf5 0)`;
+    summary.querySelector(".donut span").innerHTML = `${rate}<small>%</small>`;
+    document.querySelector("#budget-items").innerHTML = categories.expense.map((category) => {
+      const budget = budgets.find((item) => item.categoryId === category);
+      const spent = sum(monthExpenses.filter((item) => item.category === category), "expense");
+      const [icon, className] = iconMap[category] || iconMap["その他"];
+      if (!budget) return `<div class="budget-item unset" data-category="${escapeHtml(category)}"><span><i class="category-icon ${className}">${icon}</i>${escapeHtml(category)}</span><span>予算未設定</span><strong>—</strong></div>`;
+      const left = budget.amount - spent;
+      const categoryRate = Math.round(spent / budget.amount * 100);
+      return `<div class="budget-item${left < 0 ? " over warning" : ""}" data-category="${escapeHtml(category)}"><span><i class="category-icon ${className}">${icon}</i>${escapeHtml(category)}</span><span>${yen(spent)} / ${yen(budget.amount)}<i class="progress"><i style="width:${Math.min(categoryRate, 100)}%"></i></i></span><strong class="${left >= 0 ? "positive" : "negative"}">${signedYen(left)}</strong></div>`;
+    }).join("");
   }
   function renderAnalysis() {
     const months = Array.from({ length: 6 }, (_, index) => offsetMonth(viewMonth, index - 5));
@@ -499,6 +559,71 @@ import {
     document.querySelector("#recurring-add h1").textContent = "定期取引を追加";
     form.querySelector("button[type=submit]").textContent = "定期取引を保存";
   }
+  function openBudgetForm(category = "") {
+    const form = document.querySelector("#budget-form");
+    form.reset();
+    const select = document.querySelector("#budget-category");
+    select.innerHTML = categories.expense.map((name) => `<option>${escapeHtml(name)}</option>`).join("");
+    select.disabled = Boolean(category);
+    select.value = category || categories.expense.find((name) => !budgets.some((item) => item.categoryId === name)) || categories.expense[0];
+    const existing = budgets.find((item) => item.categoryId === select.value);
+    document.querySelector("#budget-amount").value = existing?.amount || "";
+    document.querySelector("#budget-form-month").textContent = `${monthLabel(viewMonth)}のカテゴリ予算`;
+    document.querySelector("#budget-add h1").textContent = existing ? "予算を編集" : "予算を追加";
+    form.querySelector('button[type="submit"]').textContent = existing ? "変更を保存" : "予算を保存";
+    form.querySelector(".budget-delete-button").hidden = !existing;
+    location.hash = "budget-add";
+  }
+  function setupBudgetActions() {
+    document.querySelector(".budget-empty .primary-button").addEventListener("click", () => openBudgetForm());
+    document.querySelector("#add-budget-button").addEventListener("click", () => openBudgetForm());
+    document.querySelector("#budget-items").addEventListener("click", (event) => {
+      const item = event.target.closest(".budget-item");
+      if (!item) return;
+      openBudgetForm(item.dataset.category || "");
+    });
+    document.querySelector("#budget-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const categoryId = document.querySelector("#budget-category").value;
+      const amount = Number(document.querySelector("#budget-amount").value);
+      if (!categoryId || !Number.isInteger(amount) || amount < 1) return showToast("カテゴリと予算額を確認してください");
+      const button = event.currentTarget.querySelector('button[type="submit"]');
+      button.disabled = true;
+      button.textContent = "保存中…";
+      try {
+        await saveRemoteBudget({ categoryId, amount });
+        const existing = budgets.some((item) => item.categoryId === categoryId);
+        budgets = existing
+          ? budgets.map((item) => item.categoryId === categoryId ? { ...item, amount } : item)
+          : [...budgets, { categoryId, amount }];
+        render();
+        location.hash = "budget";
+        showToast(existing ? "予算を更新しました" : "予算を追加しました");
+      } catch (error) {
+        console.error(error);
+        showToast("保存できませんでした。通信状態を確認してください");
+      } finally {
+        button.disabled = false;
+      }
+    });
+    document.querySelector(".budget-delete-button").addEventListener("click", async (event) => {
+      const category = document.querySelector("#budget-category").value;
+      if (!confirm(`「${category}」の${monthLabel(viewMonth)}の予算を削除しますか？`)) return;
+      event.currentTarget.disabled = true;
+      try {
+        await deleteRemoteBudget(category);
+        budgets = budgets.filter((item) => item.categoryId !== category);
+        render();
+        location.hash = "budget";
+        showToast("予算を削除しました");
+      } catch (error) {
+        console.error(error);
+        showToast("削除できませんでした。通信状態を確認してください");
+      } finally {
+        event.currentTarget.disabled = false;
+      }
+    });
+  }
   function editRecurring(item) {
     recurringType = item.type;
     updateRecurringCategories();
@@ -629,6 +754,7 @@ import {
     document.querySelector("#filter-month").value = viewMonth;
     refreshCategoryInputs();
     setupCategoryManager();
+    setupBudgetActions();
     document.querySelectorAll(".type-switch button").forEach((button) => button.addEventListener("click", () => {
       currentType = button.dataset.type;
       updateCategories();
@@ -679,10 +805,17 @@ import {
       renderTransactions();
     });
     document.querySelectorAll(".month-navigation").forEach((navigation) => {
-      navigation.querySelectorAll("button").forEach((button, index) => button.addEventListener("click", () => {
+      navigation.querySelectorAll("button").forEach((button, index) => button.addEventListener("click", async () => {
         const [year, month] = viewMonth.split("-").map(Number);
         const next = new Date(year, month - 1 + (index === 0 ? -1 : 1), 1);
         viewMonth = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+        try {
+          await loadRemoteBudgets();
+        } catch (error) {
+          console.error(error);
+          budgets = [];
+          showToast("予算を読み込めませんでした");
+        }
         render();
         window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       }));
@@ -691,7 +824,7 @@ import {
     document.querySelector(".icon-button").addEventListener("click", async (event) => {
       event.currentTarget.classList.add("syncing");
       try {
-        await loadRemoteTransactions();
+        await Promise.all([loadRemoteTransactions(), loadRemoteBudgets()]);
         showToast("最新のデータに同期しました");
       } catch (error) {
         console.error(error);
@@ -704,7 +837,7 @@ import {
       event.currentTarget.disabled = true;
       event.currentTarget.textContent = "同期中…";
       try {
-        await loadRemoteTransactions();
+        await Promise.all([loadRemoteTransactions(), loadRemoteBudgets()]);
         showToast("最新のデータに同期しました");
       } catch (error) {
         console.error(error);
@@ -741,9 +874,6 @@ import {
       updateBackButton();
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     });
-    document.querySelector(".budget-empty .primary-button").addEventListener("click", () => {
-      showToast(`${monthLabel(viewMonth)}の予算設定を開始します`);
-    });
     render();
     uiReady = true;
     updateBackButton();
@@ -770,6 +900,7 @@ import {
       }, { merge: true });
       await loadRemoteTransactions({ migrateLocal: true });
       await loadRemoteRecurringTransactions();
+      await loadRemoteBudgets();
     } catch (error) {
       console.error(error);
       transactions = hadLocalData ? load() : [];

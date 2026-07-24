@@ -35,6 +35,15 @@ service cloud.firestore {
           && request.resource.data.paymentMethodId is string
           && request.resource.data.active is bool;
       }
+
+      match /budgets/{month}/items/{categoryId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.categoryId is string
+          && request.resource.data.categoryId.size() > 0
+          && request.resource.data.amount is int
+          && request.resource.data.amount > 0;
+      }
     }
   }
 }

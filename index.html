@@ -96,7 +96,20 @@
 
         <section id="budget" class="screen">
           <header class="page-header"><div><p class="eyebrow">BUDGET</p><h1>予算</h1></div><div class="month-navigation budget-month-navigation" aria-label="予算月の切り替え"><button type="button" aria-label="前月">‹</button><span>2026年 7月</span><button type="button" aria-label="翌月">›</button></div></header>
+          <article class="panel total-budget" hidden><div><p>この月の予算</p><strong>¥0</strong><small>使用額 ¥0 ／ 残額 ¥0</small></div><div class="donut"><span>0<small>%</small></span></div></article>
+          <div class="budget-toolbar" hidden><p>カテゴリごとの予算と利用状況</p><button class="primary-button" type="button" id="add-budget-button">＋ 予算を追加</button></div>
+          <article class="panel budget-list" hidden><div class="budget-head"><span>カテゴリ</span><span>使用額 / 予算</span><span>残額</span></div><div id="budget-items"></div></article>
           <article class="panel budget-empty"><span class="budget-empty-icon">◌</span><h2>まだ予算が設定されていません</h2><p>この月の使い方を決めてから、カテゴリごとの予算を設定しましょう。</p><button class="primary-button" type="button">予算を追加する</button></article>
+        </section>
+
+        <section id="budget-add" class="screen screen-add">
+          <header class="page-header compact"><div><h1>予算を追加</h1><p class="subheading" id="budget-form-month"></p></div></header>
+          <form class="entry-card" id="budget-form">
+            <label>カテゴリ<select id="budget-category" required></select></label>
+            <label class="amount-field"><span>予算額</span><div>¥ <input id="budget-amount" min="1" step="1" inputmode="numeric" aria-label="予算額" required /></div></label>
+            <button class="primary-button full" type="submit">予算を保存</button>
+            <button class="secondary-button full budget-delete-button" type="button" hidden>この予算を削除</button>
+          </form>
         </section>
 
         <section id="recurring" class="screen">
@@ -142,6 +155,6 @@
     </div>
     <nav class="mobile-nav" id="mobile-nav" hidden><a class="active" href="#home">⌂<span>ホーム</span></a><a href="#transactions">≡<span>履歴</span></a><a class="mobile-add" href="#add">＋</a><a href="#analysis">⌁<span>分析</span></a><a href="#settings">⚙<span>設定</span></a></nav>
     <div class="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="app.js?v=4"></script>
+    <script type="module" src="app.js?v=5"></script>
   </body>
 </html>
