@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# Node.js / Firebase CLI
+node_modules/
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Local environment overrides
+.env
+.env.*
+!.env.example

@@ -1,0 +1,35 @@
+.recurring-item .recurring-summary { flex: 1; }
+.recurring-actions { position: relative; flex: none; }
+.status.paused { color: #687386; background: #f0f2f5; }
+.recurring-item.is-paused .recurring-summary,
+.recurring-item.is-paused > b { opacity: .55; }
+.recurring-menu-button { cursor: pointer; border-radius: 7px !important; padding: 7px; }
+.recurring-menu-button:hover,
+.recurring-menu-button[aria-expanded="true"] { background: var(--blue-pale); color: var(--blue); }
+.recurring-menu {
+  position: absolute;
+  z-index: 10;
+  right: 0;
+  top: calc(100% + 5px);
+  width: 132px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px #17203320;
+}
+.recurring-menu[hidden] { display: none; }
+.recurring-menu button {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 7px;
+  text-align: left;
+  font-size: 12px;
+  letter-spacing: 0;
+  color: var(--ink);
+  cursor: pointer;
+}
+.recurring-menu button:hover,
+.recurring-menu button:focus { background: var(--blue-pale); outline: none; }
+.recurring-menu .danger-menu-item { color: var(--red); }
