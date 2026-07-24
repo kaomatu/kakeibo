@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>kakeibo — 家計簿</title>
-    <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="recurring-menu.css?v=3" />
+    <link rel="stylesheet" href="styles.css?v=2" />
+    <link rel="stylesheet" href="recurring-menu.css?v=4" />
   </head>
   <body>
     <main class="auth-screen" id="auth-screen" aria-live="polite">
@@ -41,38 +41,31 @@
         <button class="global-back" type="button" aria-label="前のページへ戻る">← <span>戻る</span></button>
         <section id="home" class="screen screen-home">
           <header class="page-header">
-            <div><div class="month-navigation" aria-label="表示月の切り替え"><button type="button" aria-label="前月">‹</button><span>2026年 7月</span><button type="button" aria-label="翌月">›</button></div><h1>おかえりなさい、Kaoruさん</h1></div>
+            <div><div class="month-navigation" aria-label="表示月の切り替え"><button type="button" aria-label="前月">‹</button><span>表示月</span><button type="button" aria-label="翌月">›</button></div><h1>おかえりなさい</h1></div>
             <div class="header-actions"><button class="icon-button" aria-label="同期">↻</button><a class="primary-button" href="#add">＋ 記録する</a></div>
           </header>
 
           <div class="summary-grid">
-            <article class="summary-card"><p>今日の支出</p><strong>¥1,280</strong><small class="neutral">3件の取引</small></article>
-            <article class="summary-card"><p>今月の支出</p><strong>¥87,460</strong><small class="minus">先月より ¥4,200 多い</small></article>
-            <article class="summary-card accent"><p>今月の残予算</p><strong>+ ¥32,540</strong><small>予算 ¥120,000 のうち</small></article>
+            <article class="summary-card"><p>今日の支出</p><strong>¥0</strong><small class="neutral">0件の取引</small></article>
+            <article class="summary-card"><p>今月の支出</p><strong>¥0</strong><small class="neutral">前月と同じ</small></article>
+            <article class="summary-card accent"><p>今月の残予算</p><strong class="neutral">未設定</strong><small>予算を設定してください</small></article>
           </div>
 
           <div class="dashboard-grid">
             <article class="panel budget-overview">
-              <div class="panel-heading"><div><h2>今月の予算</h2><p>¥87,460 / ¥120,000</p></div><a href="#budget">詳しく見る →</a></div>
-              <div class="progress large"><span style="width:73%"></span></div>
-              <p class="budget-caption"><strong>残り ¥32,540</strong><span>73% 使用</span></p>
-              <div class="alert-row"><span class="alert-dot"></span><span>外食費が予算の 85% に達しています</span><a href="#budget">確認</a></div>
+              <div class="panel-heading"><div><h2>今月の予算</h2><p>まだ予算が設定されていません</p></div><a href="#budget">詳しく見る →</a></div>
+              <div class="progress large"><span style="width:0%"></span></div>
+              <p class="budget-caption"><strong>予算を追加してください</strong><span>未設定</span></p>
+              <div class="alert-row" hidden><span class="alert-dot"></span><span></span><a href="#budget">確認</a></div>
             </article>
             <article class="panel month-flow">
               <div class="panel-heading"><div><h2>今月の収支</h2><p>収入 − 支出</p></div><a href="#analysis">分析を見る →</a></div>
-              <div class="flow-numbers"><span><small>収入</small><b class="income">+ ¥248,000</b></span><i></i><span><small>支出</small><b class="expense">− ¥87,460</b></span><i></i><span><small>収支</small><b>+ ¥160,540</b></span></div>
+              <div class="flow-numbers"><span><small>収入</small><b class="income">+ ¥0</b></span><i></i><span><small>支出</small><b class="expense">− ¥0</b></span><i></i><span><small>収支</small><b class="income">+ ¥0</b></span></div>
             </article>
           </div>
 
           <section class="recent-section"><div class="section-heading"><div><h2>最近の取引</h2><p>今日と昨日の記録</p></div><a href="#transactions">すべて見る →</a></div>
-            <div class="timeline">
-              <div class="date-row"><span>今日</span><small>7月24日（金）</small></div>
-              <article class="transaction"><span class="category-icon food">☕</span><div><strong>カフェ</strong><small>食費 · 現金</small></div><b class="expense">− ¥580</b><button>•••</button></article>
-              <article class="transaction"><span class="category-icon daily">▦</span><div><strong>日用品</strong><small>日用品 · クレジットカード</small></div><b class="expense">− ¥700</b><button>•••</button></article>
-              <div class="date-row"><span>昨日</span><small>7月23日（木）</small></div>
-              <article class="transaction"><span class="category-icon transport">↗</span><div><strong>電車</strong><small>交通費 · ICカード</small></div><b class="expense">− ¥420</b><button>•••</button></article>
-              <article class="transaction"><span class="category-icon income-icon">¥</span><div><strong>給与</strong><small>給与 · 銀行口座</small></div><b class="income">+ ¥248,000</b><button>•••</button></article>
-            </div>
+            <div class="timeline"><div class="empty-state"><strong>取引がありません</strong>新しい取引を記録してください。</div></div>
           </section>
         </section>
 
@@ -92,41 +85,63 @@
         <section id="transactions" class="screen">
           <header class="page-header"><div><p class="eyebrow">TRANSACTIONS</p><h1>取引一覧</h1></div><a class="primary-button" href="#add">＋ 記録する</a></header>
           <div class="filter-bar"><select id="filter-month" aria-label="対象月"></select><select id="filter-category" aria-label="カテゴリ"><option value="">すべてのカテゴリ</option></select><select id="filter-payment" aria-label="支払い方法"><option value="">すべての支払い方法</option><option>現金</option><option>クレジットカード</option><option>ICカード</option><option>銀行口座</option></select><label>⌕ <input id="filter-search" placeholder="メモを検索" /></label><button id="clear-filters" class="filter-more">クリア</button></div>
-          <div class="panel timeline all-transactions"><div class="date-row"><span>今日</span><small>7月24日（金） · 支出 ¥1,280</small></div><article class="transaction"><span class="category-icon food">☕</span><div><strong>カフェ</strong><small>食費 · 現金</small></div><b class="expense">− ¥580</b><button>•••</button></article><article class="transaction"><span class="category-icon daily">▦</span><div><strong>日用品</strong><small>日用品 · クレジットカード</small></div><b class="expense">− ¥700</b><button>•••</button></article><div class="date-row"><span>7月23日（木）</span><small>収入 ¥248,000 · 支出 ¥420</small></div><article class="transaction"><span class="category-icon income-icon">¥</span><div><strong>給与</strong><small>給与 · 銀行口座</small></div><b class="income">+ ¥248,000</b><button>•••</button></article><article class="transaction"><span class="category-icon transport">↗</span><div><strong>電車</strong><small>交通費 · ICカード</small></div><b class="expense">− ¥420</b><button>•••</button></article></div>
+          <div class="panel timeline all-transactions"><div class="empty-state"><strong>取引がありません</strong>条件を変えるか、新しい取引を記録してください。</div></div>
         </section>
 
         <section id="analysis" class="screen">
           <header class="page-header"><div><p class="eyebrow">INSIGHTS</p><h1>月次分析</h1></div><button class="month-button">2026年7月⌄</button></header>
-          <div class="summary-grid analysis-summary"><article class="summary-card"><p>支出</p><strong>¥87,460</strong><small class="minus">先月より ¥4,200</small></article><article class="summary-card"><p>収入</p><strong>¥248,000</strong><small class="plus">先月より ¥0</small></article><article class="summary-card"><p>収支</p><strong class="income">+ ¥160,540</strong><small class="plus">先月より ¥4,200</small></article></div>
-          <div class="analysis-grid"><article class="panel"><div class="panel-heading"><div><h2>月ごとの支出</h2><p>過去6か月</p></div></div><div class="line-chart"><div class="chart-y"><span>¥120k</span><span>¥80k</span><span>¥40k</span><span>¥0</span></div><div class="chart-area"><i></i><i></i><i></i><svg viewBox="0 0 600 180" preserveAspectRatio="none" aria-label="支出推移グラフ"><polyline points="0,105 120,83 240,112 360,57 480,85 600,48" fill="none" stroke="#377aef" stroke-width="4" /><circle cx="600" cy="48" r="6" fill="#377aef" /></svg><div class="chart-x"><span>2月</span><span>3月</span><span>4月</span><span>5月</span><span>6月</span><span>7月</span></div></div></div></article><article class="panel"><div class="panel-heading"><div><h2>カテゴリ別の差額</h2><p>先月との比較</p></div><a href="#transactions">明細を見る →</a></div><div class="category-compare"><div><span>食費</span><b class="minus">+ ¥3,240</b><i><em style="width:80%"></em></i></div><div><span>日用品</span><b class="plus">− ¥1,200</b><i><em style="width:35%"></em></i></div><div><span>交通費</span><b class="minus">+ ¥780</b><i><em style="width:45%"></em></i></div><div><span>趣味</span><b class="plus">− ¥2,050</b><i><em style="width:60%"></em></i></div></div></article></div>
+          <div class="summary-grid analysis-summary"><article class="summary-card"><p>支出</p><strong>¥0</strong><small class="neutral">前月との比較なし</small></article><article class="summary-card"><p>収入</p><strong>¥0</strong><small class="neutral">前月との比較なし</small></article><article class="summary-card"><p>収支</p><strong>+ ¥0</strong><small class="neutral">前月との比較なし</small></article></div>
+          <div class="analysis-grid"><article class="panel"><div class="panel-heading"><div><h2>月ごとの支出</h2><p>過去6か月</p></div></div><div id="expense-chart"></div></article><article class="panel"><div class="panel-heading"><div><h2>カテゴリ別の差額</h2><p>先月との比較</p></div><a href="#transactions">明細を見る →</a></div><div class="category-compare"></div></article></div>
         </section>
 
         <section id="budget" class="screen">
           <header class="page-header"><div><p class="eyebrow">BUDGET</p><h1>予算</h1></div><div class="month-navigation budget-month-navigation" aria-label="予算月の切り替え"><button type="button" aria-label="前月">‹</button><span>2026年 7月</span><button type="button" aria-label="翌月">›</button></div></header>
-          <div class="budget-set-content">
-            <article class="panel total-budget"><div><p>今月の残予算</p><strong>+ ¥32,540</strong><small>総予算 ¥120,000 · 使用額 ¥87,460</small></div><div class="donut"><span>73<small>%</small></span></div></article>
-            <div class="budget-list panel"><div class="budget-head"><span>カテゴリ</span><span>使用額 / 予算</span><span>残額</span></div><div class="budget-item"><span><i class="category-icon food">☕</i>食費</span><span><b>¥25,640</b> / ¥30,000 <em class="progress"><i style="width:85%"></i></em></span><strong class="positive">+ ¥4,360</strong></div><div class="budget-item warning"><span><i class="category-icon transport">↗</i>交通費</span><span><b>¥8,820</b> / ¥10,000 <em class="progress"><i style="width:88%"></i></em></span><strong class="positive">+ ¥1,180</strong></div><div class="budget-item"><span><i class="category-icon daily">▦</i>日用品</span><span><b>¥12,300</b> / ¥15,000 <em class="progress"><i style="width:82%"></i></em></span><strong class="positive">+ ¥2,700</strong></div><div class="budget-item over"><span><i class="category-icon fun">✦</i>趣味</span><span><b>¥15,200</b> / ¥12,000 <em class="progress"><i style="width:100%"></i></em></span><strong class="negative">− ¥3,200</strong></div><div class="budget-item"><span><i class="category-icon other">•••</i>その他</span><span class="unset">予算未設定</span><strong>—</strong></div></div>
-          </div>
-          <article class="panel budget-empty" hidden><span class="budget-empty-icon">◌</span><h2>まだ予算が設定されていません</h2><p>この月の使い方を決めてから、カテゴリごとの予算を設定しましょう。</p><button class="primary-button" type="button">予算を追加する</button></article>
+          <article class="panel budget-empty"><span class="budget-empty-icon">◌</span><h2>まだ予算が設定されていません</h2><p>この月の使い方を決めてから、カテゴリごとの予算を設定しましょう。</p><button class="primary-button" type="button">予算を追加する</button></article>
         </section>
 
         <section id="recurring" class="screen">
-          <header class="page-header"><div><p class="eyebrow">RECURRING</p><h1>定期取引</h1><p class="subheading">毎月くり返す支出・収入を自動で記録します</p></div><button class="primary-button">＋ 定期取引を追加</button></header>
-          <div class="recurring-list">
-            <article class="panel recurring-item"><span class="category-icon home-icon">⌂</span><div class="recurring-summary"><strong>家賃</strong><small>毎月 25日 · 住居費 · 銀行口座</small></div><b class="expense">− ¥65,000</b><span class="status">有効</span><div class="recurring-actions"><button class="recurring-menu-button" type="button" aria-label="家賃の操作メニュー" aria-haspopup="menu" aria-expanded="false">•••</button><div class="recurring-menu" role="menu" hidden><button type="button" role="menuitem" data-action="edit">編集</button><button type="button" role="menuitem" data-action="toggle">一時停止</button><button type="button" role="menuitem" data-action="delete" class="danger-menu-item">削除</button></div></div></article>
-            <article class="panel recurring-item"><span class="category-icon fun">♪</span><div class="recurring-summary"><strong>動画配信サービス</strong><small>毎月 8日 · サブスク · クレジットカード</small></div><b class="expense">− ¥1,480</b><span class="status">有効</span><div class="recurring-actions"><button class="recurring-menu-button" type="button" aria-label="動画配信サービスの操作メニュー" aria-haspopup="menu" aria-expanded="false">•••</button><div class="recurring-menu" role="menu" hidden><button type="button" role="menuitem" data-action="edit">編集</button><button type="button" role="menuitem" data-action="toggle">一時停止</button><button type="button" role="menuitem" data-action="delete" class="danger-menu-item">削除</button></div></div></article>
-            <article class="panel recurring-item"><span class="category-icon income-icon">¥</span><div class="recurring-summary"><strong>給与</strong><small>毎月 23日 · 給与 · 銀行口座</small></div><b class="income">+ ¥248,000</b><span class="status">有効</span><div class="recurring-actions"><button class="recurring-menu-button" type="button" aria-label="給与の操作メニュー" aria-haspopup="menu" aria-expanded="false">•••</button><div class="recurring-menu" role="menu" hidden><button type="button" role="menuitem" data-action="edit">編集</button><button type="button" role="menuitem" data-action="toggle">一時停止</button><button type="button" role="menuitem" data-action="delete" class="danger-menu-item">削除</button></div></div></article>
-          </div>
+          <header class="page-header"><div><p class="eyebrow">RECURRING</p><h1>定期取引</h1><p class="subheading">毎月くり返す支出・収入を自動で記録します</p></div><a class="primary-button" id="add-recurring-button" href="#recurring-add">＋ 定期取引を追加</a></header>
+          <div class="recurring-list"><article class="panel empty-state"><strong>定期取引がありません</strong>定期的な支出・収入を追加すると、ここに表示されます。</article></div>
+        </section>
+
+        <section id="recurring-add" class="screen screen-add">
+          <header class="page-header compact"><div><h1>定期取引を追加</h1><p class="subheading">毎月、自動で記録する取引を設定します</p></div></header>
+          <form class="entry-card" id="recurring-form">
+            <input id="recurring-id" type="hidden" />
+            <div class="type-switch recurring-type-switch" aria-label="定期取引種別"><button class="selected" type="button" data-recurring-type="expense">支出</button><button type="button" data-recurring-type="income">収入</button></div>
+            <label>定期取引名<input id="recurring-name" type="text" maxlength="40" placeholder="例：家賃" required /></label>
+            <label class="amount-field"><span>金額</span><div>¥ <input id="recurring-amount" min="1" step="1" inputmode="numeric" aria-label="金額" required /></div></label>
+            <label>カテゴリ<select id="recurring-category" required></select></label>
+            <div class="form-row"><label>毎月の日付<input id="recurring-day" type="number" min="1" max="31" inputmode="numeric" required /></label><label>支払い方法<select id="recurring-payment" required><option>現金</option><option>クレジットカード</option><option>ICカード</option><option>銀行口座</option></select></label></div>
+            <p class="form-help">29〜31日を指定した月は、その月の末日に記録されます。</p>
+            <button class="primary-button full" type="submit">定期取引を保存</button>
+          </form>
         </section>
 
         <section id="settings" class="screen">
           <header class="page-header"><div><p class="eyebrow">SETTINGS</p><h1>設定</h1></div></header>
           <div class="settings-grid"><article class="panel setting-group"><h2>定期取引</h2><p>家賃、給与、サブスクなど、毎月の自動記録を管理します。</p><a href="#recurring">定期取引を管理 →</a></article><article class="panel setting-group"><h2>カテゴリ</h2><p>支出・収入カテゴリを追加、並べ替え、削除します。</p><a href="#category-settings">カテゴリを管理 →</a></article><article class="panel setting-group"><h2>支払い方法</h2><p>現金、カード、電子マネーなどを管理します。</p><a href="#payment-settings">支払い方法を管理 →</a></article><article class="panel setting-group"><h2>データ同期</h2><p id="sync-status">最終同期：未同期</p><button class="secondary-button" id="sync-now" type="button">今すぐ同期</button></article><article class="panel setting-group"><h2>アカウント</h2><p id="account-email">Googleアカウントでログイン中です。</p><button class="secondary-button danger-button" id="logout" type="button">ログアウト</button></article></div>
         </section>
+
+        <section id="category-settings" class="screen">
+          <header class="page-header"><div><p class="eyebrow">CATEGORIES</p><h1>カテゴリ管理</h1><p class="subheading">取引の入力に使うカテゴリを管理します</p></div></header>
+          <div class="category-settings-layout">
+            <form id="category-form" class="panel category-add-form">
+              <h2>カテゴリを追加</h2>
+              <div class="type-switch" aria-label="カテゴリ種別"><button class="selected" type="button" data-category-type="expense">支出</button><button type="button" data-category-type="income">収入</button></div>
+              <label>カテゴリ名<input id="category-name" maxlength="20" placeholder="例：医療費" required /></label>
+              <button class="primary-button full" type="submit">追加する</button>
+            </form>
+            <div class="panel category-manager">
+              <div class="category-tabs" role="tablist"><button class="active" type="button" data-category-tab="expense">支出カテゴリ</button><button type="button" data-category-tab="income">収入カテゴリ</button></div>
+              <div id="category-list" class="category-list"></div>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
     <nav class="mobile-nav" id="mobile-nav" hidden><a class="active" href="#home">⌂<span>ホーム</span></a><a href="#transactions">≡<span>履歴</span></a><a class="mobile-add" href="#add">＋</a><a href="#analysis">⌁<span>分析</span></a><a href="#settings">⚙<span>設定</span></a></nav>
     <div class="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="app.js?v=2"></script>
+    <script type="module" src="app.js?v=4"></script>
   </body>
 </html>

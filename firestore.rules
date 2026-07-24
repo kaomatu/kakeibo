@@ -19,6 +19,22 @@ service cloud.firestore {
           && request.resource.data.categoryId is string
           && request.resource.data.paymentMethodId is string;
       }
+
+      match /recurringTransactions/{recurringTransactionId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.type in ['expense', 'income']
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.amount is int
+          && request.resource.data.amount > 0
+          && request.resource.data.dayOfMonth is int
+          && request.resource.data.dayOfMonth >= 1
+          && request.resource.data.dayOfMonth <= 31
+          && request.resource.data.categoryId is string
+          && request.resource.data.paymentMethodId is string
+          && request.resource.data.active is bool;
+      }
     }
   }
 }

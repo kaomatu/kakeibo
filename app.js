@@ -24,6 +24,7 @@ import {
   "use strict";
 
   const STORAGE_KEY = "kakeibo-transactions-v1";
+  const CATEGORY_STORAGE_KEY = "kakeibo-categories-v1";
   const firebaseConfig = {
     projectId: "ka-kei-bo",
     appId: "1:1026729282840:web:91c6cb379382a0b953e26d",
@@ -38,30 +39,33 @@ import {
   const db = getFirestore(firebaseApp);
   const googleProvider = new GoogleAuthProvider();
   const hadLocalData = localStorage.getItem(STORAGE_KEY) !== null;
-  const categories = {
+  const defaultCategories = {
     expense: ["食費", "日用品", "交通費", "住居費", "趣味", "その他"],
     income: ["給与", "副業", "臨時収入", "その他"],
   };
+  let categories = loadCategories();
   const iconMap = {
     食費: ["☕", "food"], 日用品: ["▦", "daily"], 交通費: ["↗", "transport"],
     住居費: ["⌂", "home-icon"], 趣味: ["✦", "fun"], 給与: ["¥", "income-icon"],
     副業: ["¥", "income-icon"], 臨時収入: ["¥", "income-icon"], その他: ["•••", "other"],
   };
-  const seed = [
-    { id: "t1", type: "expense", amount: 580, date: "2026-07-24", category: "食費", payment: "現金", memo: "カフェ", createdAt: 4 },
-    { id: "t2", type: "expense", amount: 700, date: "2026-07-24", category: "日用品", payment: "クレジットカード", memo: "日用品", createdAt: 3 },
-    { id: "t3", type: "expense", amount: 420, date: "2026-07-23", category: "交通費", payment: "ICカード", memo: "電車", createdAt: 2 },
-    { id: "t4", type: "income", amount: 248000, date: "2026-07-23", category: "給与", payment: "銀行口座", memo: "給与", createdAt: 1 },
-    { id: "t5", type: "expense", amount: 65000, date: "2026-07-20", category: "住居費", payment: "銀行口座", memo: "家賃", createdAt: 0 },
-    { id: "t6", type: "expense", amount: 11960, date: "2026-07-12", category: "食費", payment: "クレジットカード", memo: "食料品", createdAt: -1 },
-    { id: "t7", type: "expense", amount: 8800, date: "2026-07-08", category: "趣味", payment: "クレジットカード", memo: "映画と書籍", createdAt: -2 },
-  ];
+  const legacySampleTransactions = {
+    t1: ["expense", 580, "2026-07-24", "食費", "現金", "カフェ"],
+    t2: ["expense", 700, "2026-07-24", "日用品", "クレジットカード", "日用品"],
+    t3: ["expense", 420, "2026-07-23", "交通費", "ICカード", "電車"],
+    t4: ["income", 248000, "2026-07-23", "給与", "銀行口座", "給与"],
+    t5: ["expense", 65000, "2026-07-20", "住居費", "銀行口座", "家賃"],
+    t6: ["expense", 11960, "2026-07-12", "食費", "クレジットカード", "食料品"],
+    t7: ["expense", 8800, "2026-07-08", "趣味", "クレジットカード", "映画と書籍"],
+  };
   const yen = (value) => `¥${Math.abs(value).toLocaleString("ja-JP")}`;
   const signedYen = (value) => `${value >= 0 ? "+ " : "− "}${yen(value)}`;
   const today = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
-  let viewMonth = "2026-07";
+  let viewMonth = today().slice(0, 7);
   let currentType = "expense";
+  let recurringType = "expense";
   let transactions = load();
+  let recurringTransactions = [];
   let routeStack = ["#home"];
   let isAppBack = false;
   let currentUser = null;
@@ -72,10 +76,29 @@ import {
   function load() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      return Array.isArray(saved) ? saved : seed;
+      return Array.isArray(saved) ? saved.filter((entry) => !isLegacySample(entry)) : [];
     } catch {
-      return seed;
+      return [];
     }
+  }
+  function isLegacySample(entry) {
+    const sample = legacySampleTransactions[entry.id];
+    return !!sample && [
+      entry.type, entry.amount, entry.date, entry.category, entry.payment, entry.memo,
+    ].every((value, index) => value === sample[index]);
+  }
+  function loadCategories() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CATEGORY_STORAGE_KEY));
+      return saved && Array.isArray(saved.expense) && Array.isArray(saved.income)
+        ? saved
+        : structuredClone(defaultCategories);
+    } catch {
+      return structuredClone(defaultCategories);
+    }
+  }
+  function persistCategories() {
+    localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify(categories));
   }
   function persist() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
@@ -113,6 +136,13 @@ import {
     if (!currentUser) return;
     const reference = collection(db, "users", currentUser.uid, "transactions");
     const snapshot = await getDocs(reference);
+    const remoteEntries = snapshot.docs.map(transactionFromDocument);
+    const legacyDocs = snapshot.docs.filter((item, index) => isLegacySample(remoteEntries[index]));
+    if (legacyDocs.length) {
+      const cleanupBatch = writeBatch(db);
+      legacyDocs.forEach((item) => cleanupBatch.delete(item.ref));
+      await cleanupBatch.commit();
+    }
     if (snapshot.empty && migrateLocal && hadLocalData && transactions.length) {
       const batch = writeBatch(db);
       transactions.forEach((entry) => {
@@ -121,10 +151,11 @@ import {
       await batch.commit();
       showToast("端末内の取引をFirebaseへ移行しました");
     } else {
-      transactions = snapshot.docs.map(transactionFromDocument);
+      transactions = remoteEntries.filter((entry) => !isLegacySample(entry));
     }
     persist();
     if (uiReady) render();
+    if (legacyDocs.length) showToast("サンプルデータを削除しました");
     document.querySelector("#sync-status").textContent = `最終同期：${new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}`;
   }
   async function saveRemoteTransaction(entry) {
@@ -134,6 +165,49 @@ import {
   async function deleteRemoteTransaction(id) {
     if (!currentUser) throw new Error("ログインが必要です");
     await deleteDoc(doc(db, "users", currentUser.uid, "transactions", id));
+  }
+  function recurringDocument(entry) {
+    return {
+      type: entry.type,
+      name: entry.name,
+      amount: entry.amount,
+      dayOfMonth: entry.dayOfMonth,
+      categoryId: entry.category,
+      categoryNameSnapshot: entry.category,
+      paymentMethodId: entry.payment,
+      paymentMethodNameSnapshot: entry.payment,
+      active: entry.active,
+      createdAt: Timestamp.fromMillis(Math.max(entry.createdAt || Date.now(), 1)),
+      updatedAt: serverTimestamp(),
+    };
+  }
+  function recurringFromDocument(snapshot) {
+    const data = snapshot.data();
+    return {
+      id: snapshot.id,
+      type: data.type,
+      name: data.name || data.categoryNameSnapshot || data.categoryId,
+      amount: data.amount,
+      dayOfMonth: data.dayOfMonth,
+      category: data.categoryNameSnapshot || data.categoryId,
+      payment: data.paymentMethodNameSnapshot || data.paymentMethodId,
+      active: data.active !== false,
+      createdAt: data.createdAt?.toMillis?.() || 0,
+    };
+  }
+  async function loadRemoteRecurringTransactions() {
+    if (!currentUser) return;
+    const snapshot = await getDocs(collection(db, "users", currentUser.uid, "recurringTransactions"));
+    recurringTransactions = snapshot.docs.map(recurringFromDocument);
+    renderRecurringTransactions();
+  }
+  async function saveRemoteRecurringTransaction(entry) {
+    if (!currentUser) throw new Error("ログインが必要です");
+    await setDoc(doc(db, "users", currentUser.uid, "recurringTransactions", entry.id), recurringDocument(entry));
+  }
+  async function deleteRemoteRecurringTransaction(id) {
+    if (!currentUser) throw new Error("ログインが必要です");
+    await deleteDoc(doc(db, "users", currentUser.uid, "recurringTransactions", id));
   }
   function monthLabel(month) {
     const [year, value] = month.split("-");
@@ -201,8 +275,6 @@ import {
     const expenseDifference = expense - previousExpense;
     const income = sum(monthItems, "income");
     const balance = income - expense;
-    const budget = 120000;
-    const remaining = budget - expense;
     const todayItems = transactions.filter((item) => item.date === today());
     const todayExpense = sum(todayItems, "expense");
     const homeCards = document.querySelectorAll("#home .summary-card");
@@ -219,30 +291,18 @@ import {
         ? "前月と同じ"
         : `前月より ${yen(expenseDifference)} ${expenseDifference > 0 ? "多い" : "少ない"}`;
     comparison.className = isFutureMonth ? "neutral" : expenseDifference > 0 ? "minus" : expenseDifference < 0 ? "plus" : "neutral";
-    homeCards[2].querySelector("strong").textContent = isFutureMonth ? "未設定" : signedYen(remaining);
-    homeCards[2].querySelector("strong").className = isFutureMonth ? "neutral" : remaining >= 0 ? "positive" : "negative";
-    homeCards[2].querySelector("small").textContent = isFutureMonth ? "この月の予算を追加してください" : `予算 ${yen(budget)} のうち`;
+    homeCards[2].querySelector("strong").textContent = "未設定";
+    homeCards[2].querySelector("strong").className = "neutral";
+    homeCards[2].querySelector("small").textContent = "予算を設定してください";
     document.querySelectorAll(".month-label, .month-navigation span").forEach((el) => el.textContent = monthLabel(viewMonth));
     const overview = document.querySelector(".budget-overview");
     overview.querySelector(".panel-heading h2").textContent = isCurrentMonth ? "今月の予算" : "この月の予算";
-    overview.querySelector(".panel-heading p").textContent = isFutureMonth ? "まだ予算が設定されていません" : `${yen(expense)} / ${yen(budget)}`;
-    const rate = Math.round((expense / budget) * 100);
-    overview.querySelector(".progress span").style.width = isFutureMonth ? "0%" : `${Math.min(rate, 100)}%`;
-    overview.querySelector(".budget-caption strong").textContent = isFutureMonth ? "予算を追加してください" : remaining >= 0 ? `残り ${yen(remaining)}` : `${yen(-remaining)} 超過`;
-    overview.querySelector(".budget-caption span").textContent = isFutureMonth ? "未設定" : `${rate}% 使用`;
-    const categoryBudgets = { 食費: 30000, 交通費: 10000, 日用品: 15000, 趣味: 12000 };
-    const warning = Object.entries(categoryBudgets)
-      .map(([category, amount]) => ({
-        category,
-        rate: Math.round((sum(monthItems.filter((item) => item.category === category), "expense") / amount) * 100),
-      }))
-      .filter((item) => item.rate >= 80)
-      .sort((a, b) => b.rate - a.rate)[0];
+    overview.querySelector(".panel-heading p").textContent = "まだ予算が設定されていません";
+    overview.querySelector(".progress span").style.width = "0%";
+    overview.querySelector(".budget-caption strong").textContent = "予算を追加してください";
+    overview.querySelector(".budget-caption span").textContent = "未設定";
     const alertRow = overview.querySelector(".alert-row");
-    alertRow.hidden = isFutureMonth || !warning;
-    if (warning) alertRow.querySelector("span:nth-child(2)").textContent = `${warning.category}が予算の ${warning.rate}% に達しています`;
-    document.querySelector(".budget-set-content").hidden = isFutureMonth;
-    document.querySelector(".budget-empty").hidden = !isFutureMonth;
+    alertRow.hidden = true;
     const flow = document.querySelectorAll(".flow-numbers b");
     flow[0].textContent = `+ ${yen(income)}`;
     flow[1].textContent = `− ${yen(expense)}`;
@@ -254,7 +314,90 @@ import {
       const values = [expense, income, balance];
       el.textContent = index === 2 ? signedYen(values[index]) : yen(values[index]);
     });
+    renderAnalysis();
     bindTransactionActions();
+  }
+  function renderAnalysis() {
+    const months = Array.from({ length: 6 }, (_, index) => offsetMonth(viewMonth, index - 5));
+    const amounts = months.map((month) => sum(transactions.filter((item) => item.date.startsWith(month)), "expense"));
+    const chart = document.querySelector("#expense-chart");
+    if (!amounts.some(Boolean)) {
+      chart.innerHTML = `<div class="empty-state"><strong>分析するデータがありません</strong>取引を記録すると、ここに支出の推移が表示されます。</div>`;
+    } else {
+      const max = Math.max(...amounts, 1);
+      const points = amounts.map((amount, index) => `${index * 120},${175 - (amount / max) * 155}`).join(" ");
+      chart.innerHTML = `<div class="line-chart"><div class="chart-y"><span>${yen(max)}</span><span>${yen(Math.round(max / 2))}</span><span>¥0</span></div><div class="chart-area"><svg viewBox="0 0 600 180" preserveAspectRatio="none" aria-label="支出推移グラフ"><polyline points="${points}" fill="none" stroke="#377aef" stroke-width="4" /></svg><div class="chart-x">${months.map((month) => `<span>${Number(month.slice(5))}月</span>`).join("")}</div></div></div>`;
+    }
+    const current = transactions.filter((item) => item.type === "expense" && item.date.startsWith(viewMonth));
+    const previousMonth = offsetMonth(viewMonth, -1);
+    const previous = transactions.filter((item) => item.type === "expense" && item.date.startsWith(previousMonth));
+    const names = [...new Set([...current, ...previous].map((item) => item.category))];
+    const differences = names.map((name) => ({
+      name,
+      value: sum(current.filter((item) => item.category === name), "expense") - sum(previous.filter((item) => item.category === name), "expense"),
+    })).filter((item) => item.value !== 0).sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+    const largest = Math.max(...differences.map((item) => Math.abs(item.value)), 1);
+    document.querySelector(".category-compare").innerHTML = differences.length
+      ? differences.map((item) => `<div><span>${escapeHtml(item.name)}</span><b class="${item.value > 0 ? "minus" : "plus"}">${signedYen(item.value)}</b><i><em style="width:${Math.round(Math.abs(item.value) / largest * 100)}%"></em></i></div>`).join("")
+      : `<div class="empty-state compact-empty"><strong>比較するデータがありません</strong>今月と先月の取引が揃うと差額を表示します。</div>`;
+    const previousExpense = sum(previous, "expense");
+    const currentExpense = sum(current, "expense");
+    const comparison = document.querySelector(".analysis-summary .summary-card small");
+    comparison.textContent = previousExpense || currentExpense ? `先月より ${signedYen(currentExpense - previousExpense)}` : "前月との比較なし";
+    comparison.className = currentExpense > previousExpense ? "minus" : currentExpense < previousExpense ? "plus" : "neutral";
+  }
+  function refreshCategoryInputs() {
+    updateCategories();
+    updateRecurringCategories();
+    const filter = document.querySelector("#filter-category");
+    const selected = filter.value;
+    filter.innerHTML = `<option value="">すべてのカテゴリ</option>${[...new Set(Object.values(categories).flat())].map((name) => `<option>${escapeHtml(name)}</option>`).join("")}`;
+    if ([...filter.options].some((option) => option.value === selected)) filter.value = selected;
+  }
+  function renderCategoryManager(type = document.querySelector("[data-category-tab].active")?.dataset.categoryTab || "expense") {
+    document.querySelectorAll("[data-category-tab]").forEach((button) => button.classList.toggle("active", button.dataset.categoryTab === type));
+    const list = document.querySelector("#category-list");
+    list.innerHTML = categories[type].map((name, index) => {
+      const [icon, className] = iconMap[name] || iconMap["その他"];
+      const inUse = transactions.some((item) => item.type === type && item.category === name);
+      return `<div class="category-row" data-name="${escapeHtml(name)}"><span class="category-row-name"><i class="category-icon ${className}">${icon}</i>${escapeHtml(name)}</span><span class="category-row-actions"><button type="button" data-move="-1" ${index === 0 ? "disabled" : ""} aria-label="上へ移動">↑</button><button type="button" data-move="1" ${index === categories[type].length - 1 ? "disabled" : ""} aria-label="下へ移動">↓</button><button type="button" class="delete-category" ${inUse ? "disabled" : ""} title="${inUse ? "取引で使用中のため削除できません" : "削除"}" aria-label="削除">×</button></span></div>`;
+    }).join("");
+  }
+  function setupCategoryManager() {
+    let formType = "expense";
+    document.querySelectorAll("[data-category-type]").forEach((button) => button.addEventListener("click", () => {
+      formType = button.dataset.categoryType;
+      document.querySelectorAll("[data-category-type]").forEach((item) => item.classList.toggle("selected", item === button));
+    }));
+    document.querySelectorAll("[data-category-tab]").forEach((button) => button.addEventListener("click", () => renderCategoryManager(button.dataset.categoryTab)));
+    document.querySelector("#category-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const input = document.querySelector("#category-name");
+      const name = input.value.trim();
+      if (!name || Object.values(categories).flat().includes(name)) return showToast("同じ名前のカテゴリが既にあります");
+      categories[formType].push(name);
+      persistCategories();
+      refreshCategoryInputs();
+      renderCategoryManager(formType);
+      input.value = "";
+      showToast("カテゴリを追加しました");
+    });
+    document.querySelector("#category-list").addEventListener("click", (event) => {
+      const row = event.target.closest(".category-row");
+      if (!row) return;
+      const type = document.querySelector("[data-category-tab].active").dataset.categoryTab;
+      const index = categories[type].indexOf(row.dataset.name);
+      if (event.target.matches("[data-move]")) {
+        const target = index + Number(event.target.dataset.move);
+        [categories[type][index], categories[type][target]] = [categories[type][target], categories[type][index]];
+      } else if (event.target.matches(".delete-category") && confirm(`「${row.dataset.name}」を削除しますか？`)) {
+        categories[type].splice(index, 1);
+      } else return;
+      persistCategories();
+      refreshCategoryInputs();
+      renderCategoryManager(type);
+    });
+    renderCategoryManager();
   }
   function renderTransactions() {
     const month = document.querySelector("#filter-month").value || viewMonth;
@@ -324,11 +467,56 @@ import {
       button.nextElementSibling.hidden = true;
     });
   }
+  function updateRecurringCategories() {
+    const select = document.querySelector("#recurring-category");
+    const previous = select.value;
+    select.innerHTML = `<option value="">カテゴリを選択</option>${categories[recurringType].map((name) => `<option>${escapeHtml(name)}</option>`).join("")}`;
+    if (categories[recurringType].includes(previous)) select.value = previous;
+    document.querySelectorAll("[data-recurring-type]").forEach((button) => {
+      const active = button.dataset.recurringType === recurringType;
+      button.classList.toggle("selected", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+  }
+  function recurringHtml(item) {
+    const [icon, className] = iconMap[item.category] || iconMap["その他"];
+    return `<article class="panel recurring-item${item.active ? "" : " is-paused"}" data-id="${item.id}"><span class="category-icon ${className}">${icon}</span><div class="recurring-summary"><strong>${escapeHtml(item.name)}</strong><small>毎月${item.dayOfMonth}日 · ${escapeHtml(item.category)} · ${escapeHtml(item.payment)}</small></div><b class="${item.type}">${item.type === "income" ? "+ " : "− "}${yen(item.amount)}</b><span class="status${item.active ? "" : " paused"}">${item.active ? "有効" : "停止中"}</span><div class="recurring-actions"><button class="recurring-menu-button" type="button" aria-label="${escapeHtml(item.name)}の操作メニュー" aria-expanded="false">•••</button><div class="recurring-menu" hidden><button type="button" data-action="edit">編集</button><button type="button" data-action="toggle">${item.active ? "一時停止" : "再開"}</button><button type="button" class="danger-menu-item" data-action="delete">削除</button></div></div></article>`;
+  }
+  function renderRecurringTransactions() {
+    const list = document.querySelector(".recurring-list");
+    const sortedItems = [...recurringTransactions].sort((a, b) => a.dayOfMonth - b.dayOfMonth || (b.createdAt || 0) - (a.createdAt || 0));
+    list.innerHTML = sortedItems.length
+      ? sortedItems.map(recurringHtml).join("")
+      : `<article class="panel empty-state"><strong>定期取引がありません</strong>定期的な支出・収入を追加すると、ここに表示されます。</article>`;
+  }
+  function resetRecurringForm() {
+    const form = document.querySelector("#recurring-form");
+    form.reset();
+    document.querySelector("#recurring-id").value = "";
+    document.querySelector("#recurring-day").value = new Date().getDate();
+    recurringType = "expense";
+    updateRecurringCategories();
+    document.querySelector("#recurring-add h1").textContent = "定期取引を追加";
+    form.querySelector("button[type=submit]").textContent = "定期取引を保存";
+  }
+  function editRecurring(item) {
+    recurringType = item.type;
+    updateRecurringCategories();
+    document.querySelector("#recurring-id").value = item.id;
+    document.querySelector("#recurring-name").value = item.name;
+    document.querySelector("#recurring-amount").value = item.amount;
+    document.querySelector("#recurring-day").value = item.dayOfMonth;
+    document.querySelector("#recurring-category").value = item.category;
+    document.querySelector("#recurring-payment").value = item.payment;
+    document.querySelector("#recurring-add h1").textContent = "定期取引を編集";
+    document.querySelector("#recurring-form button[type=submit]").textContent = "変更を保存";
+    location.hash = "recurring-add";
+  }
   function setupRecurringActions() {
     const list = document.querySelector(".recurring-list");
     if (list.dataset.actionsReady === "true") return;
     list.dataset.actionsReady = "true";
-    list.addEventListener("click", (event) => {
+    list.addEventListener("click", async (event) => {
       const menuButton = event.target.closest(".recurring-menu-button");
       if (menuButton) {
         const willOpen = menuButton.getAttribute("aria-expanded") !== "true";
@@ -341,26 +529,36 @@ import {
       const actionButton = event.target.closest("[data-action]");
       if (!actionButton) return;
       const item = actionButton.closest(".recurring-item");
-      const nameElement = item.querySelector(".recurring-summary strong");
-      const status = item.querySelector(".status");
+      const entry = recurringTransactions.find((value) => value.id === item.dataset.id);
+      if (!entry) return;
       closeRecurringMenus();
       if (actionButton.dataset.action === "edit") {
-        const nextName = prompt("定期取引名を編集", nameElement.textContent);
-        if (nextName?.trim()) {
-          nameElement.textContent = nextName.trim();
-          item.querySelector(".recurring-menu-button").setAttribute("aria-label", `${nextName.trim()}の操作メニュー`);
-          showToast("定期取引を更新しました");
-        }
+        editRecurring(entry);
       } else if (actionButton.dataset.action === "toggle") {
-        const paused = status.textContent === "有効";
-        status.textContent = paused ? "停止中" : "有効";
-        status.classList.toggle("paused", paused);
-        item.classList.toggle("is-paused", paused);
-        actionButton.textContent = paused ? "再開" : "一時停止";
-        showToast(paused ? "定期取引を一時停止しました" : "定期取引を再開しました");
-      } else if (actionButton.dataset.action === "delete" && confirm(`「${nameElement.textContent}」を削除しますか？`)) {
-        item.remove();
-        showToast("定期取引を削除しました");
+        item.classList.add("recurring-saving");
+        try {
+          const changed = { ...entry, active: !entry.active };
+          await saveRemoteRecurringTransaction(changed);
+          recurringTransactions = recurringTransactions.map((value) => value.id === entry.id ? changed : value);
+          renderRecurringTransactions();
+          showToast(changed.active ? "定期取引を再開しました" : "定期取引を一時停止しました");
+        } catch (error) {
+          console.error(error);
+          item.classList.remove("recurring-saving");
+          showToast("更新できませんでした。通信状態を確認してください");
+        }
+      } else if (actionButton.dataset.action === "delete" && confirm(`「${entry.name}」を削除しますか？`)) {
+        item.classList.add("recurring-saving");
+        try {
+          await deleteRemoteRecurringTransaction(entry.id);
+          recurringTransactions = recurringTransactions.filter((value) => value.id !== entry.id);
+          renderRecurringTransactions();
+          showToast("定期取引を削除しました");
+        } catch (error) {
+          console.error(error);
+          item.classList.remove("recurring-saving");
+          showToast("削除できませんでした。通信状態を確認してください");
+        }
       }
     });
     document.addEventListener("click", (event) => {
@@ -372,6 +570,56 @@ import {
       closeRecurringMenus();
       openButton?.focus();
     });
+    document.querySelectorAll("[data-recurring-type]").forEach((button) => button.addEventListener("click", () => {
+      recurringType = button.dataset.recurringType;
+      updateRecurringCategories();
+    }));
+    document.querySelector("#add-recurring-button").addEventListener("click", resetRecurringForm);
+    document.querySelector("#recurring-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const id = document.querySelector("#recurring-id").value;
+      const amount = Number(document.querySelector("#recurring-amount").value);
+      const dayOfMonth = Number(document.querySelector("#recurring-day").value);
+      const name = document.querySelector("#recurring-name").value.trim();
+      const category = document.querySelector("#recurring-category").value;
+      if (!name || !Number.isInteger(amount) || amount < 1 || !Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31 || !category) {
+        showToast("入力内容を確認してください");
+        return;
+      }
+      const previous = recurringTransactions.find((item) => item.id === id);
+      const entry = {
+        id: id || crypto.randomUUID(),
+        type: recurringType,
+        name,
+        amount,
+        dayOfMonth,
+        category,
+        payment: document.querySelector("#recurring-payment").value,
+        active: previous?.active ?? true,
+        createdAt: previous?.createdAt || Date.now(),
+      };
+      const submitButton = event.currentTarget.querySelector("button[type=submit]");
+      submitButton.disabled = true;
+      submitButton.textContent = "保存中…";
+      try {
+        await saveRemoteRecurringTransaction(entry);
+        recurringTransactions = id
+          ? recurringTransactions.map((item) => item.id === id ? entry : item)
+          : [...recurringTransactions, entry];
+        renderRecurringTransactions();
+        resetRecurringForm();
+        location.hash = "recurring";
+        showToast(id ? "定期取引を更新しました" : "定期取引を追加しました");
+      } catch (error) {
+        console.error(error);
+        showToast("保存できませんでした。通信状態を確認してください");
+      } finally {
+        submitButton.disabled = false;
+        if (document.querySelector("#recurring-id").value) submitButton.textContent = "変更を保存";
+      }
+    });
+    updateRecurringCategories();
+    renderRecurringTransactions();
   }
   function setup() {
     document.querySelector("#date").value = today();
@@ -379,7 +627,8 @@ import {
     const months = [...new Set(["2026-07", today().slice(0, 7), ...transactions.map((item) => item.date.slice(0, 7))])].sort().reverse();
     document.querySelector("#filter-month").innerHTML = months.map((month) => `<option value="${month}">${monthLabel(month)}</option>`).join("");
     document.querySelector("#filter-month").value = viewMonth;
-    document.querySelector("#filter-category").innerHTML += [...new Set(Object.values(categories).flat())].map((name) => `<option>${name}</option>`).join("");
+    refreshCategoryInputs();
+    setupCategoryManager();
     document.querySelectorAll(".type-switch button").forEach((button) => button.addEventListener("click", () => {
       currentType = button.dataset.type;
       updateCategories();
@@ -520,6 +769,7 @@ import {
         updatedAt: serverTimestamp(),
       }, { merge: true });
       await loadRemoteTransactions({ migrateLocal: true });
+      await loadRemoteRecurringTransactions();
     } catch (error) {
       console.error(error);
       transactions = hadLocalData ? load() : [];

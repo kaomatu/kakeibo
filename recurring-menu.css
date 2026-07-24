@@ -33,3 +33,5 @@
 .recurring-menu button:hover,
 .recurring-menu button:focus { background: var(--blue-pale); outline: none; }
 .recurring-menu .danger-menu-item { color: var(--red); }
+.form-help { margin: -7px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.recurring-saving { opacity: .65; pointer-events: none; }
