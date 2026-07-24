@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>kakeibo — 家計簿</title>
-    <link rel="stylesheet" href="styles.css?v=2" />
+    <link rel="stylesheet" href="styles.css?v=3" />
     <link rel="stylesheet" href="recurring-menu.css?v=4" />
   </head>
   <body>
@@ -143,6 +143,11 @@
               <h2>カテゴリを追加</h2>
               <div class="type-switch" aria-label="カテゴリ種別"><button class="selected" type="button" data-category-type="expense">支出</button><button type="button" data-category-type="income">収入</button></div>
               <label>カテゴリ名<input id="category-name" maxlength="20" placeholder="例：医療費" required /></label>
+              <div class="category-appearance-fields">
+                <label>記号<input id="category-symbol" maxlength="2" value="●" placeholder="例：✚" required /></label>
+                <label>色<input id="category-color" type="color" value="#377aef" aria-label="カテゴリの色" /></label>
+              </div>
+              <div class="category-preview"><span>プレビュー</span><i id="category-preview-icon" class="category-icon">●</i></div>
               <button class="primary-button full" type="submit">追加する</button>
             </form>
             <div class="panel category-manager">
@@ -155,6 +160,6 @@
     </div>
     <nav class="mobile-nav" id="mobile-nav" hidden><a class="active" href="#home">⌂<span>ホーム</span></a><a href="#transactions">≡<span>履歴</span></a><a class="mobile-add" href="#add">＋</a><a href="#analysis">⌁<span>分析</span></a><a href="#settings">⚙<span>設定</span></a></nav>
     <div class="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="app.js?v=5"></script>
+    <script type="module" src="app.js?v=6"></script>
   </body>
 </html>

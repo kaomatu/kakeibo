@@ -25,6 +25,7 @@ import {
 
   const STORAGE_KEY = "kakeibo-transactions-v1";
   const CATEGORY_STORAGE_KEY = "kakeibo-categories-v1";
+  const CATEGORY_STYLE_STORAGE_KEY = "kakeibo-category-styles-v1";
   const firebaseConfig = {
     projectId: "ka-kei-bo",
     appId: "1:1026729282840:web:91c6cb379382a0b953e26d",
@@ -49,6 +50,14 @@ import {
     住居費: ["⌂", "home-icon"], 趣味: ["✦", "fun"], 給与: ["¥", "income-icon"],
     副業: ["¥", "income-icon"], 臨時収入: ["¥", "income-icon"], その他: ["•••", "other"],
   };
+  const defaultCategoryStyles = {
+    食費: { symbol: "☕", color: "#d87b32" }, 日用品: { symbol: "▦", color: "#21886d" },
+    交通費: { symbol: "↗", color: "#5b6fdc" }, 住居費: { symbol: "⌂", color: "#c9703b" },
+    趣味: { symbol: "✦", color: "#a55fcd" }, 給与: { symbol: "¥", color: "#2877ca" },
+    副業: { symbol: "¥", color: "#2877ca" }, 臨時収入: { symbol: "¥", color: "#2877ca" },
+    その他: { symbol: "•••", color: "#687386" },
+  };
+  let categoryStyles = loadCategoryStyles();
   const legacySampleTransactions = {
     t1: ["expense", 580, "2026-07-24", "食費", "現金", "カフェ"],
     t2: ["expense", 700, "2026-07-24", "日用品", "クレジットカード", "日用品"],
@@ -100,6 +109,28 @@ import {
   }
   function persistCategories() {
     localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify(categories));
+  }
+  function loadCategoryStyles() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CATEGORY_STYLE_STORAGE_KEY));
+      return { ...structuredClone(defaultCategoryStyles), ...(saved || {}) };
+    } catch {
+      return structuredClone(defaultCategoryStyles);
+    }
+  }
+  function persistCategoryStyles() {
+    localStorage.setItem(CATEGORY_STYLE_STORAGE_KEY, JSON.stringify(categoryStyles));
+  }
+  function categoryAppearance(name) {
+    const saved = categoryStyles[name] || {};
+    return {
+      symbol: String(saved.symbol || iconMap[name]?.[0] || "●").slice(0, 2),
+      color: /^#[0-9a-f]{6}$/i.test(saved.color || "") ? saved.color : "#687386",
+    };
+  }
+  function categoryIconHtml(name) {
+    const appearance = categoryAppearance(name);
+    return `<i class="category-icon" style="color:${appearance.color};background:${appearance.color}1f">${escapeHtml(appearance.symbol)}</i>`;
   }
   function persist() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
@@ -268,9 +299,8 @@ import {
     });
   }
   function transactionHtml(item) {
-    const [icon, className] = iconMap[item.category] || iconMap["その他"];
     const sign = item.type === "income" ? "+ " : "− ";
-    return `<article class="transaction" data-id="${item.id}"><span class="category-icon ${className}">${icon}</span><div><strong>${escapeHtml(item.memo || item.category)}</strong><small>${escapeHtml(item.category)} · ${escapeHtml(item.payment)}</small></div><b class="${item.type}">${sign}${yen(item.amount)}</b><button class="transaction-action" aria-label="${escapeHtml(item.memo || item.category)}を編集">•••</button></article>`;
+    return `<article class="transaction" data-id="${item.id}">${categoryIconHtml(item.category)}<div><strong>${escapeHtml(item.memo || item.category)}</strong><small>${escapeHtml(item.category)} · ${escapeHtml(item.payment)}</small></div><b class="${item.type}">${sign}${yen(item.amount)}</b><button class="transaction-action" aria-label="${escapeHtml(item.memo || item.category)}を編集">•••</button></article>`;
   }
   function dateHeading(date, list, compact = false) {
     const parsed = new Date(`${date}T00:00:00`);
@@ -370,11 +400,10 @@ import {
     document.querySelector("#budget-items").innerHTML = categories.expense.map((category) => {
       const budget = budgets.find((item) => item.categoryId === category);
       const spent = sum(monthExpenses.filter((item) => item.category === category), "expense");
-      const [icon, className] = iconMap[category] || iconMap["その他"];
-      if (!budget) return `<div class="budget-item unset" data-category="${escapeHtml(category)}"><span><i class="category-icon ${className}">${icon}</i>${escapeHtml(category)}</span><span>予算未設定</span><strong>—</strong></div>`;
+      if (!budget) return `<div class="budget-item unset" data-category="${escapeHtml(category)}"><span>${categoryIconHtml(category)}${escapeHtml(category)}</span><span>予算未設定</span><strong>—</strong></div>`;
       const left = budget.amount - spent;
       const categoryRate = Math.round(spent / budget.amount * 100);
-      return `<div class="budget-item${left < 0 ? " over warning" : ""}" data-category="${escapeHtml(category)}"><span><i class="category-icon ${className}">${icon}</i>${escapeHtml(category)}</span><span>${yen(spent)} / ${yen(budget.amount)}<i class="progress"><i style="width:${Math.min(categoryRate, 100)}%"></i></i></span><strong class="${left >= 0 ? "positive" : "negative"}">${signedYen(left)}</strong></div>`;
+      return `<div class="budget-item${left < 0 ? " over warning" : ""}" data-category="${escapeHtml(category)}"><span>${categoryIconHtml(category)}${escapeHtml(category)}</span><span>${yen(spent)} / ${yen(budget.amount)}<i class="progress"><i style="width:${Math.min(categoryRate, 100)}%"></i></i></span><strong class="${left >= 0 ? "positive" : "negative"}">${signedYen(left)}</strong></div>`;
     }).join("");
   }
   function renderAnalysis() {
@@ -418,9 +447,9 @@ import {
     document.querySelectorAll("[data-category-tab]").forEach((button) => button.classList.toggle("active", button.dataset.categoryTab === type));
     const list = document.querySelector("#category-list");
     list.innerHTML = categories[type].map((name, index) => {
-      const [icon, className] = iconMap[name] || iconMap["その他"];
+      const appearance = categoryAppearance(name);
       const inUse = transactions.some((item) => item.type === type && item.category === name);
-      return `<div class="category-row" data-name="${escapeHtml(name)}"><span class="category-row-name"><i class="category-icon ${className}">${icon}</i>${escapeHtml(name)}</span><span class="category-row-actions"><button type="button" data-move="-1" ${index === 0 ? "disabled" : ""} aria-label="上へ移動">↑</button><button type="button" data-move="1" ${index === categories[type].length - 1 ? "disabled" : ""} aria-label="下へ移動">↓</button><button type="button" class="delete-category" ${inUse ? "disabled" : ""} title="${inUse ? "取引で使用中のため削除できません" : "削除"}" aria-label="削除">×</button></span></div>`;
+      return `<div class="category-row" data-name="${escapeHtml(name)}"><span class="category-row-name">${categoryIconHtml(name)}${escapeHtml(name)}</span><span class="category-style-controls"><label title="記号"><input class="category-symbol-input" maxlength="2" value="${escapeHtml(appearance.symbol)}" aria-label="${escapeHtml(name)}の記号" /></label><label title="色"><input class="category-color-input" type="color" value="${appearance.color}" aria-label="${escapeHtml(name)}の色" /></label></span><span class="category-row-actions"><button type="button" data-move="-1" ${index === 0 ? "disabled" : ""} aria-label="上へ移動">↑</button><button type="button" data-move="1" ${index === categories[type].length - 1 ? "disabled" : ""} aria-label="下へ移動">↓</button><button type="button" class="delete-category" ${inUse ? "disabled" : ""} title="${inUse ? "取引で使用中のため削除できません" : "削除"}" aria-label="削除">×</button></span></div>`;
     }).join("");
   }
   function setupCategoryManager() {
@@ -436,10 +465,18 @@ import {
       const name = input.value.trim();
       if (!name || Object.values(categories).flat().includes(name)) return showToast("同じ名前のカテゴリが既にあります");
       categories[formType].push(name);
+      categoryStyles[name] = {
+        symbol: document.querySelector("#category-symbol").value.trim() || "●",
+        color: document.querySelector("#category-color").value,
+      };
       persistCategories();
+      persistCategoryStyles();
       refreshCategoryInputs();
       renderCategoryManager(formType);
       input.value = "";
+      document.querySelector("#category-symbol").value = "●";
+      document.querySelector("#category-color").value = "#377aef";
+      updateCategoryPreview();
       showToast("カテゴリを追加しました");
     });
     document.querySelector("#category-list").addEventListener("click", (event) => {
@@ -452,11 +489,37 @@ import {
         [categories[type][index], categories[type][target]] = [categories[type][target], categories[type][index]];
       } else if (event.target.matches(".delete-category") && confirm(`「${row.dataset.name}」を削除しますか？`)) {
         categories[type].splice(index, 1);
+        delete categoryStyles[row.dataset.name];
       } else return;
       persistCategories();
+      persistCategoryStyles();
       refreshCategoryInputs();
       renderCategoryManager(type);
     });
+    document.querySelector("#category-list").addEventListener("change", (event) => {
+      const row = event.target.closest(".category-row");
+      if (!row || !event.target.matches(".category-symbol-input, .category-color-input")) return;
+      const current = categoryAppearance(row.dataset.name);
+      categoryStyles[row.dataset.name] = {
+        symbol: row.querySelector(".category-symbol-input").value.trim() || current.symbol,
+        color: row.querySelector(".category-color-input").value,
+      };
+      persistCategoryStyles();
+      render();
+      renderCategoryManager();
+      showToast("カテゴリの表示を更新しました");
+    });
+    const updateCategoryPreview = () => {
+      const symbol = document.querySelector("#category-symbol").value.trim() || "●";
+      const color = document.querySelector("#category-color").value;
+      const preview = document.querySelector("#category-preview-icon");
+      preview.textContent = symbol;
+      preview.style.color = color;
+      preview.style.background = `${color}1f`;
+    };
+    document.querySelector("#category-symbol").addEventListener("input", updateCategoryPreview);
+    document.querySelector("#category-color").addEventListener("input", updateCategoryPreview);
+    updateCategoryPreview();
     renderCategoryManager();
   }
   function renderTransactions() {
@@ -539,8 +602,7 @@ import {
     });
   }
   function recurringHtml(item) {
-    const [icon, className] = iconMap[item.category] || iconMap["その他"];
-    return `<article class="panel recurring-item${item.active ? "" : " is-paused"}" data-id="${item.id}"><span class="category-icon ${className}">${icon}</span><div class="recurring-summary"><strong>${escapeHtml(item.name)}</strong><small>毎月${item.dayOfMonth}日 · ${escapeHtml(item.category)} · ${escapeHtml(item.payment)}</small></div><b class="${item.type}">${item.type === "income" ? "+ " : "− "}${yen(item.amount)}</b><span class="status${item.active ? "" : " paused"}">${item.active ? "有効" : "停止中"}</span><div class="recurring-actions"><button class="recurring-menu-button" type="button" aria-label="${escapeHtml(item.name)}の操作メニュー" aria-expanded="false">•••</button><div class="recurring-menu" hidden><button type="button" data-action="edit">編集</button><button type="button" data-action="toggle">${item.active ? "一時停止" : "再開"}</button><button type="button" class="danger-menu-item" data-action="delete">削除</button></div></div></article>`;
+    return `<article class="panel recurring-item${item.active ? "" : " is-paused"}" data-id="${item.id}">${categoryIconHtml(item.category)}<div class="recurring-summary"><strong>${escapeHtml(item.name)}</strong><small>毎月${item.dayOfMonth}日 · ${escapeHtml(item.category)} · ${escapeHtml(item.payment)}</small></div><b class="${item.type}">${item.type === "income" ? "+ " : "− "}${yen(item.amount)}</b><span class="status${item.active ? "" : " paused"}">${item.active ? "有効" : "停止中"}</span><div class="recurring-actions"><button class="recurring-menu-button" type="button" aria-label="${escapeHtml(item.name)}の操作メニュー" aria-expanded="false">•••</button><div class="recurring-menu" hidden><button type="button" data-action="edit">編集</button><button type="button" data-action="toggle">${item.active ? "一時停止" : "再開"}</button><button type="button" class="danger-menu-item" data-action="delete">削除</button></div></div></article>`;
   }
   function renderRecurringTransactions() {
     const list = document.querySelector(".recurring-list");
