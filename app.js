@@ -326,6 +326,8 @@ import {
   }
   function setupRecurringActions() {
     const list = document.querySelector(".recurring-list");
+    if (list.dataset.actionsReady === "true") return;
+    list.dataset.actionsReady = "true";
     list.addEventListener("click", (event) => {
       const menuButton = event.target.closest(".recurring-menu-button");
       if (menuButton) {
@@ -437,7 +439,6 @@ import {
       }));
     });
     document.querySelectorAll('a[href="#add"]').forEach((link) => link.addEventListener("click", resetForm));
-    setupRecurringActions();
     document.querySelector(".icon-button").addEventListener("click", async (event) => {
       event.currentTarget.classList.add("syncing");
       try {
@@ -538,6 +539,7 @@ import {
     document.querySelector("#login-status").textContent = "Googleアカウントでログインしてください";
   }
   async function bootAuthentication() {
+    setupRecurringActions();
     const loginButton = document.querySelector("#google-login");
     const loginStatus = document.querySelector("#login-status");
     loginButton.addEventListener("click", async () => {

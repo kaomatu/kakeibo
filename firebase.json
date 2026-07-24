@@ -2,6 +2,17 @@
   "hosting": {
     "public": ".",
     "cleanUrls": true,
+    "headers": [
+      {
+        "source": "**/*.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      }
+    ],
     "ignore": [
       "firebase.json",
       ".firebaserc",
