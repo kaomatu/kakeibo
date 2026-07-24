@@ -104,11 +104,13 @@
 
         <section id="budget-add" class="screen screen-add">
           <header class="page-header compact"><div><h1>予算を追加</h1><p class="subheading" id="budget-form-month"></p></div></header>
-          <form class="entry-card" id="budget-form">
-            <label>カテゴリ<select id="budget-category" required></select></label>
-            <label class="amount-field"><span>予算額</span><div>¥ <input id="budget-amount" min="1" step="1" inputmode="numeric" aria-label="予算額" required /></div></label>
-            <button class="primary-button full" type="submit">予算を保存</button>
-            <button class="secondary-button full budget-delete-button" type="button" hidden>この予算を削除</button>
+          <form class="budget-bulk-form" id="budget-form">
+            <div class="budget-form-total"><span>総予算</span><strong id="budget-form-total">¥0</strong><small>カテゴリごとの予算の合計</small></div>
+            <div class="budget-form-table">
+              <div class="budget-form-head"><span>カテゴリ</span><span>予算額</span></div>
+              <div id="budget-form-items"></div>
+            </div>
+            <button class="primary-button budget-save-button" type="submit"><span aria-hidden="true">▣</span> 保存する</button>
           </form>
         </section>
 

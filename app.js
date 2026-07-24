@@ -290,6 +290,19 @@ import {
     if (!currentUser) throw new Error("ログインが必要です");
     await deleteDoc(budgetReference(viewMonth, category));
   }
+  async function saveRemoteBudgets(entries) {
+    if (!currentUser) throw new Error("ログインが必要です");
+    const batch = writeBatch(db);
+    entries.forEach(({ categoryId, amount }) => {
+      const reference = budgetReference(viewMonth, categoryId);
+      if (amount > 0) {
+        batch.set(reference, { categoryId, amount, updatedAt: serverTimestamp() });
+      } else {
+        batch.delete(reference);
+      }
+    });
+    await batch.commit();
+  }
   function monthLabel(month) {
     const [year, value] = month.split("-");
     return `${year}年 ${Number(value)}月`;
@@ -689,20 +702,25 @@ import {
     document.querySelector("#recurring-add h1").textContent = "定期取引を追加";
     form.querySelector("button[type=submit]").textContent = "定期取引を保存";
   }
+  function updateBudgetFormTotal() {
+    const total = [...document.querySelectorAll(".budget-row-input")]
+      .reduce((value, input) => value + (Number(input.value) || 0), 0);
+    document.querySelector("#budget-form-total").textContent = yen(total);
+  }
   function openBudgetForm(category = "") {
     const form = document.querySelector("#budget-form");
     form.reset();
-    const select = document.querySelector("#budget-category");
-    select.innerHTML = categories.expense.map((name) => `<option>${escapeHtml(name)}</option>`).join("");
-    select.disabled = Boolean(category);
-    select.value = category || categories.expense.find((name) => !budgets.some((item) => item.categoryId === name)) || categories.expense[0];
-    const existing = budgets.find((item) => item.categoryId === select.value);
-    document.querySelector("#budget-amount").value = existing?.amount || "";
+    document.querySelector("#budget-form-items").innerHTML = categories.expense.map((name) => {
+      const existing = budgets.find((item) => item.categoryId === name);
+      return `<label class="budget-form-row" data-category="${escapeHtml(name)}"><span>${categoryIconHtml(name)}<strong>${escapeHtml(name)}</strong></span><span class="budget-row-amount">¥ <input class="budget-row-input" type="number" min="0" step="1" inputmode="numeric" value="${existing?.amount || ""}" placeholder="0" aria-label="${escapeHtml(name)}の予算額"></span></label>`;
+    }).join("");
     document.querySelector("#budget-form-month").textContent = `${monthLabel(viewMonth)}のカテゴリ予算`;
-    document.querySelector("#budget-add h1").textContent = existing ? "予算を編集" : "予算を追加";
-    form.querySelector('button[type="submit"]').textContent = existing ? "変更を保存" : "予算を保存";
-    form.querySelector(".budget-delete-button").hidden = !existing;
+    updateBudgetFormTotal();
     location.hash = "budget-add";
+    if (category) requestAnimationFrame(() => {
+      const row = [...document.querySelectorAll(".budget-form-row")].find((item) => item.dataset.category === category);
+      row?.querySelector("input").focus();
+    });
   }
   function setupBudgetActions() {
     document.querySelector(".budget-empty .primary-button").addEventListener("click", () => openBudgetForm());
@@ -714,45 +732,29 @@ import {
     });
     document.querySelector("#budget-form").addEventListener("submit", async (event) => {
       event.preventDefault();
-      const categoryId = document.querySelector("#budget-category").value;
-      const amount = Number(document.querySelector("#budget-amount").value);
-      if (!categoryId || !Number.isInteger(amount) || amount < 1) return showToast("カテゴリと予算額を確認してください");
+      const entries = [...document.querySelectorAll(".budget-form-row")].map((row) => ({
+        categoryId: row.dataset.category,
+        amount: Number(row.querySelector("input").value) || 0,
+      }));
+      if (entries.some((entry) => !Number.isInteger(entry.amount) || entry.amount < 0)) return showToast("予算額は0以上の整数で入力してください");
       const button = event.currentTarget.querySelector('button[type="submit"]');
       button.disabled = true;
-      button.textContent = "保存中…";
+      button.innerHTML = "<span aria-hidden=\"true\">▣</span> 保存中…";
       try {
-        await saveRemoteBudget({ categoryId, amount });
-        const existing = budgets.some((item) => item.categoryId === categoryId);
-        budgets = existing
-          ? budgets.map((item) => item.categoryId === categoryId ? { ...item, amount } : item)
-          : [...budgets, { categoryId, amount }];
+        await saveRemoteBudgets(entries);
+        budgets = entries.filter((entry) => entry.amount > 0);
         render();
         location.hash = "budget";
-        showToast(existing ? "予算を更新しました" : "予算を追加しました");
+        showToast("カテゴリごとの予算を保存しました");
       } catch (error) {
         console.error(error);
         showToast("保存できませんでした。通信状態を確認してください");
       } finally {
         button.disabled = false;
+        button.innerHTML = "<span aria-hidden=\"true\">▣</span> 保存する";
       }
     });
-    document.querySelector(".budget-delete-button").addEventListener("click", async (event) => {
-      const category = document.querySelector("#budget-category").value;
-      if (!confirm(`「${category}」の${monthLabel(viewMonth)}の予算を削除しますか？`)) return;
-      event.currentTarget.disabled = true;
-      try {
-        await deleteRemoteBudget(category);
-        budgets = budgets.filter((item) => item.categoryId !== category);
-        render();
-        location.hash = "budget";
-        showToast("予算を削除しました");
-      } catch (error) {
-        console.error(error);
-        showToast("削除できませんでした。通信状態を確認してください");
-      } finally {
-        event.currentTarget.disabled = false;
-      }
-    });
+    document.querySelector("#budget-form-items").addEventListener("input", updateBudgetFormTotal);
   }
   function editRecurring(item) {
     recurringType = item.type;
