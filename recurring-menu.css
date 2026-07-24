@@ -1,5 +1,5 @@
 .recurring-item .recurring-summary { flex: 1; }
-.recurring-actions { position: relative; flex: none; }
+.recurring-item .recurring-actions { position: relative; flex: none; margin-left: auto; }
 .status.paused { color: #687386; background: #f0f2f5; }
 .recurring-item.is-paused .recurring-summary,
 .recurring-item.is-paused > b { opacity: .55; }
