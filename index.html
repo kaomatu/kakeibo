@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>kakeibo — 家計簿</title>
-    <link rel="stylesheet" href="styles.css?v=3" />
+    <link rel="stylesheet" href="styles.css?v=4" />
     <link rel="stylesheet" href="recurring-menu.css?v=4" />
   </head>
   <body>
@@ -156,10 +156,26 @@
             </div>
           </div>
         </section>
+
+        <section id="payment-settings" class="screen">
+          <header class="page-header"><div><p class="eyebrow">PAYMENT METHODS</p><h1>支払い方法管理</h1><p class="subheading">取引の入力に使う支払い方法を管理します</p></div></header>
+          <div class="payment-settings-layout">
+            <form id="payment-form" class="panel payment-add-form">
+              <h2>支払い方法を追加</h2>
+              <label>支払い方法名<input id="payment-name" maxlength="30" placeholder="例：電子マネー" required /></label>
+              <button class="primary-button full" type="submit">追加する</button>
+            </form>
+            <div class="panel payment-manager">
+              <h2>登録済みの支払い方法</h2>
+              <p class="manager-help">並べ替えた順番で入力画面に表示されます。</p>
+              <div id="payment-list" class="payment-list"></div>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
     <nav class="mobile-nav" id="mobile-nav" hidden><a class="active" href="#home">⌂<span>ホーム</span></a><a href="#transactions">≡<span>履歴</span></a><a class="mobile-add" href="#add">＋</a><a href="#analysis">⌁<span>分析</span></a><a href="#settings">⚙<span>設定</span></a></nav>
     <div class="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="app.js?v=6"></script>
+    <script type="module" src="app.js?v=7"></script>
   </body>
 </html>

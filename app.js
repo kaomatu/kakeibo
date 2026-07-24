@@ -26,6 +26,7 @@ import {
   const STORAGE_KEY = "kakeibo-transactions-v1";
   const CATEGORY_STORAGE_KEY = "kakeibo-categories-v1";
   const CATEGORY_STYLE_STORAGE_KEY = "kakeibo-category-styles-v1";
+  const PAYMENT_METHOD_STORAGE_KEY = "kakeibo-payment-methods-v1";
   const firebaseConfig = {
     projectId: "ka-kei-bo",
     appId: "1:1026729282840:web:91c6cb379382a0b953e26d",
@@ -44,7 +45,9 @@ import {
     expense: ["食費", "日用品", "交通費", "住居費", "趣味", "その他"],
     income: ["給与", "副業", "臨時収入", "その他"],
   };
+  const defaultPaymentMethods = ["現金", "クレジットカード", "ICカード", "銀行口座"];
   let categories = loadCategories();
+  let paymentMethods = loadPaymentMethods();
   const iconMap = {
     食費: ["☕", "food"], 日用品: ["▦", "daily"], 交通費: ["↗", "transport"],
     住居費: ["⌂", "home-icon"], 趣味: ["✦", "fun"], 給与: ["¥", "income-icon"],
@@ -120,6 +123,31 @@ import {
   }
   function persistCategoryStyles() {
     localStorage.setItem(CATEGORY_STYLE_STORAGE_KEY, JSON.stringify(categoryStyles));
+  }
+  function loadPaymentMethods() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(PAYMENT_METHOD_STORAGE_KEY));
+      return Array.isArray(saved) && saved.length ? saved : [...defaultPaymentMethods];
+    } catch {
+      return [...defaultPaymentMethods];
+    }
+  }
+  function persistPaymentMethods() {
+    localStorage.setItem(PAYMENT_METHOD_STORAGE_KEY, JSON.stringify(paymentMethods));
+  }
+  function refreshPaymentInputs() {
+    const configurations = [
+      ["#payment", null],
+      ["#recurring-payment", null],
+      ["#filter-payment", "すべての支払い方法"],
+    ];
+    configurations.forEach(([selector, placeholder]) => {
+      const select = document.querySelector(selector);
+      const selected = select.value;
+      const firstOption = placeholder ? `<option value="">${placeholder}</option>` : "";
+      select.innerHTML = `${firstOption}${paymentMethods.map((name) => `<option>${escapeHtml(name)}</option>`).join("")}`;
+      if ([...select.options].some((option) => option.value === selected)) select.value = selected;
+    });
   }
   function categoryAppearance(name) {
     const saved = categoryStyles[name] || {};
@@ -522,6 +550,46 @@ import {
     updateCategoryPreview();
     renderCategoryManager();
   }
+  function renderPaymentManager() {
+    const list = document.querySelector("#payment-list");
+    list.innerHTML = paymentMethods.map((name, index) => {
+      const inUse = transactions.some((item) => item.payment === name)
+        || recurringTransactions.some((item) => item.payment === name);
+      return `<div class="payment-row" data-name="${escapeHtml(name)}"><strong>${escapeHtml(name)}</strong><span class="payment-row-actions"><button type="button" data-move="-1" ${index === 0 ? "disabled" : ""} aria-label="上へ移動">↑</button><button type="button" data-move="1" ${index === paymentMethods.length - 1 ? "disabled" : ""} aria-label="下へ移動">↓</button><button type="button" class="delete-payment" ${inUse || paymentMethods.length === 1 ? "disabled" : ""} title="${inUse ? "取引で使用中のため削除できません" : paymentMethods.length === 1 ? "最低1件必要です" : "削除"}" aria-label="削除">×</button></span></div>`;
+    }).join("");
+  }
+  function setupPaymentManager() {
+    document.querySelector("#payment-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const input = document.querySelector("#payment-name");
+      const name = input.value.trim();
+      if (!name) return;
+      if (paymentMethods.includes(name)) return showToast("同じ名前の支払い方法が既にあります");
+      paymentMethods.push(name);
+      persistPaymentMethods();
+      refreshPaymentInputs();
+      renderPaymentManager();
+      input.value = "";
+      showToast("支払い方法を追加しました");
+    });
+    document.querySelector("#payment-list").addEventListener("click", (event) => {
+      const row = event.target.closest(".payment-row");
+      if (!row) return;
+      const index = paymentMethods.indexOf(row.dataset.name);
+      if (event.target.matches("[data-move]")) {
+        const target = index + Number(event.target.dataset.move);
+        if (target < 0 || target >= paymentMethods.length) return;
+        [paymentMethods[index], paymentMethods[target]] = [paymentMethods[target], paymentMethods[index]];
+      } else if (event.target.matches(".delete-payment") && confirm(`「${row.dataset.name}」を削除しますか？`)) {
+        paymentMethods.splice(index, 1);
+      } else return;
+      persistPaymentMethods();
+      refreshPaymentInputs();
+      renderPaymentManager();
+    });
+    refreshPaymentInputs();
+    renderPaymentManager();
+  }
   function renderTransactions() {
     const month = document.querySelector("#filter-month").value || viewMonth;
     const category = document.querySelector("#filter-category").value;
@@ -816,6 +884,7 @@ import {
     document.querySelector("#filter-month").value = viewMonth;
     refreshCategoryInputs();
     setupCategoryManager();
+    setupPaymentManager();
     setupBudgetActions();
     document.querySelectorAll(".type-switch button").forEach((button) => button.addEventListener("click", () => {
       currentType = button.dataset.type;
